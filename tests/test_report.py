@@ -63,6 +63,15 @@ class ReportTests(unittest.TestCase):
             self.assertEqual(json.loads(json_path.read_text()), report)
             self.assertIn("Benchmark result", html_path.read_text())
 
+    def test_report_names_excluded_backends(self) -> None:
+        report = sample_report()
+        report["excluded"] = [{"label": "onnxruntime-cuda-fp32", "reason": "not installed"}]
+
+        rendered = render_html(report)
+
+        self.assertIn("Left out: onnxruntime-cuda-fp32, not installed.", rendered)
+        self.assertIn("fastest one whose output matches PyTorch", rendered)
+
 
 if __name__ == "__main__":
     unittest.main()

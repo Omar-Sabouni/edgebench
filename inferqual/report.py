@@ -58,6 +58,14 @@ def render_html(report: dict[str, Any]) -> str:
         else ""
     )
     selected_place = results.index(selected) + 1
+    excluded = report.get("excluded", [])
+    excluded_note = (
+        '<p class="caveat">Left out: '
+        + "; ".join(f"{_text(item['label'])}, {_text(item['reason'])}" for item in excluded)
+        + ".</p>"
+        if excluded
+        else ""
+    )
     rows = []
     for place, result in enumerate(results, start=1):
         latency = result["latency"]
@@ -80,19 +88,19 @@ def render_html(report: dict[str, Any]) -> str:
 <title>InferQual result</title><style>{_REPORT_CSS}</style></head><body><main>
 <header><p class="event">InferQual</p>
 <h1>Benchmark result</h1>
-<p class="lede">PyTorch and ONNX Runtime, timed on the built-in vision model.</p>
+<p class="lede">PyTorch and ONNX Runtime, timed on the built-in vision model. The selected backend is the fastest one whose output matches PyTorch.</p>
 </header>
 <section aria-labelledby="result-title">
 <div class="winner"><span class="medal" aria-hidden="true">{selected_place}</span>
 <strong id="result-title">{_text(selected["label"])}</strong>
-<span>{_text(selected["latency"]["p50_ms"])} ms median{speedup_note}</span></div>
+<span>{_text(selected["latency"]["p50_ms"])} ms p50{speedup_note}</span></div>
 <div class="table-region" role="region" aria-label="Benchmark result table" tabindex="0">
-<table><caption>Placed by median time. Lower is better.</caption><thead><tr>
+<table><caption>Placed by p50 time. Lower is better.</caption><thead><tr>
 <th scope="col">Place</th><th scope="col">Runtime</th><th scope="col">Device</th>
-<th scope="col">Median</th><th scope="col">p95</th><th scope="col">Samples/s</th>
-<th scope="col">Output match</th></tr></thead>
+<th scope="col">p50</th><th scope="col">p95</th><th scope="col">Samples/s</th>
+<th scope="col">Cosine similarity</th></tr></thead>
 <tbody>{"".join(rows)}</tbody></table></div></section>
-<p class="caveat">Times depend on the machine. Accuracy isn't measured here.</p>
+{excluded_note}<p class="caveat">Times depend on the machine. Accuracy isn't measured here.</p>
 </main></body></html>"""
 
 
