@@ -132,6 +132,10 @@ class _CalibrationReader(CalibrationDataReader):
         self._index = 0
 
 
+def _reasons(unavailable: list[dict[str, str]]) -> str:
+    return "; ".join(f"{item['id']}: {item['reason']}" for item in unavailable) or "no reason given"
+
+
 def _short_error(error: BaseException) -> str:
     message = " ".join(str(error).split())
     return (
@@ -293,7 +297,7 @@ def run_benchmark(output: Path, settings: Settings | None = None) -> dict[str, A
     if settings.device == "cuda" and not (
         torch.cuda.is_available() or "CUDAExecutionProvider" in ort.get_available_providers()
     ):
-        raise BenchmarkError("no CUDA backend is available")
+        raise BenchmarkError("no CUDA backend is available. Run with --device cpu.")
     if output.exists() and (not output.is_dir() or any(output.iterdir())):
         raise BenchmarkError(f"output directory must be new or empty: {output}")
     output.mkdir(parents=True, exist_ok=True)
@@ -310,9 +314,9 @@ def run_benchmark(output: Path, settings: Settings | None = None) -> dict[str, A
         if settings.device == "cuda" and not any(
             runtime.device == "CUDA" for runtime in runtimes
         ):
-            raise BenchmarkError("no CUDA backend is available")
+            raise BenchmarkError("no CUDA backend is available. Run with --device cpu.")
         if not runtimes:
-            raise BenchmarkError("no benchmark backend is available")
+            raise BenchmarkError(f"no backend could start: {_reasons(unavailable)}")
 
         results: list[dict[str, Any]] = []
         for runtime in runtimes:
@@ -344,11 +348,29 @@ def run_benchmark(output: Path, settings: Settings | None = None) -> dict[str, A
             except Exception as exc:
                 unavailable.append({"id": runtime.id, "reason": _short_error(exc)})
         if not results:
-            raise BenchmarkError("all benchmark backends failed")
+            raise BenchmarkError(f"every backend failed: {_reasons(unavailable)}")
         try:
             selected = select_fastest(results)
         except ValueError as exc:
-            raise BenchmarkError(str(exc)) from exc
+            scores = "; ".join(
+                f"{result['label']}: {result['fidelity']['cosine_similarity']}" for result in results
+            )
+            raise BenchmarkError(
+                "no backend's output matched PyTorch closely enough. Cosine similarity must be "
+                f"at least 0.99999 for FP32 and 0.98 for INT8 ({scores})."
+            ) from exc
+
+        excluded = [
+            {"label": item["id"], "reason": item["reason"]} for item in unavailable
+        ] + [
+            {
+                "label": result["label"],
+                "reason": "output did not match PyTorch "
+                f"(cosine similarity {result['fidelity']['cosine_similarity']})",
+            }
+            for result in results
+            if result["status"] != "passed"
+        ]
 
         report: dict[str, Any] = {
             "model": {
@@ -369,6 +391,8 @@ def run_benchmark(output: Path, settings: Settings | None = None) -> dict[str, A
             ],
             "selected": selected,
         }
+        if excluded:
+            report["excluded"] = excluded
         baseline = next(
             (result for result in results if result["id"] == "pytorch-cpu-fp32"), None
         )

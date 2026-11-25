@@ -1,7 +1,7 @@
 # InferQual
 
-InferQual compares PyTorch, ONNX Runtime, and quantized ONNX on a small built-in vision
-workload and reports the selected backend.
+InferQual times PyTorch, ONNX Runtime, and quantized ONNX on a small built-in vision
+model and picks the fastest backend whose output matches PyTorch.
 
 ![InferQual benchmark result](docs/report.png)
 

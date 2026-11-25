@@ -30,9 +30,13 @@ def _parser() -> argparse.ArgumentParser:
         type=Path,
         help="new or empty output directory (default: reports/<UTC timestamp>)",
     )
-    run.add_argument("--warmup", type=int, default=10)
-    run.add_argument("--iterations", type=int, default=50)
-    run.add_argument("--threads", type=int, default=1)
+    run.add_argument(
+        "--warmup", type=int, default=10, help="untimed runs before timing starts (default: 10)"
+    )
+    run.add_argument(
+        "--iterations", type=int, default=50, help="timed runs per backend (default: 50)"
+    )
+    run.add_argument("--threads", type=int, default=1, help="CPU threads (default: 1)")
 
     return parser
 
